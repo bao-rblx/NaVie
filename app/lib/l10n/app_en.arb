@@ -1,0 +1,16 @@
+{
+  "@@locale": "en",
+  "appTitle": "NaVie",
+  "searchOrigin": "Origin",
+  "searchDestination": "Destination",
+  "modeWalk": "Walk",
+  "modeMotorbike": "Motorbike",
+  "modeCar": "Car",
+  "modeTaxi": "Taxi",
+  "findRoute": "Find route",
+  "startNavigation": "Start",
+  "estimateLabel": "estimate",
+  "errorOutOfCoverage": "Location is outside the supported map area.",
+  "errorNoPath": "No route found.",
+  "osmAttribution": "© OpenStreetMap contributors"
+}

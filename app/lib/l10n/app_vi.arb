@@ -1,0 +1,16 @@
+{
+  "@@locale": "vi",
+  "appTitle": "NaVie",
+  "searchOrigin": "Điểm đi",
+  "searchDestination": "Điểm đến",
+  "modeWalk": "Đi bộ",
+  "modeMotorbike": "Xe máy",
+  "modeCar": "Ô tô",
+  "modeTaxi": "Taxi",
+  "findRoute": "Tìm đường",
+  "startNavigation": "Bắt đầu",
+  "estimateLabel": "ước tính",
+  "errorOutOfCoverage": "Vị trí nằm ngoài vùng bản đồ được hỗ trợ.",
+  "errorNoPath": "Không tìm thấy đường đi.",
+  "osmAttribution": "© OpenStreetMap contributors"
+}
