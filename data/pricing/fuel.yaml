@@ -1,0 +1,9 @@
+# Template from docs/04_data_and_costs.md §3. All values are placeholders.
+# TODO(source): P1 fills from the Petrolimex / Bộ Công Thương price announcement.
+verified: false
+last_updated: TODO-verify
+currency: VND
+ron95_per_l: TODO-verify
+e5_ron92_per_l: TODO-verify
+diesel_per_l: TODO-verify
+source: "Petrolimex / Bộ Công Thương price announcement"

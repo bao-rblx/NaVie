@@ -1,0 +1,10 @@
+# Template from docs/04_data_and_costs.md §3. All fares are placeholders.
+# TODO(source): P1 fills from each brand's public fare page, with date.
+verified: false
+last_updated: TODO-verify
+brands:
+  grab_bike: { open_vnd: TODO, first_km: 2, per_km_vnd: TODO, per_min_vnd: 0 }
+  grab_car4: { open_vnd: TODO, first_km: 2, per_km_vnd: TODO, per_min_vnd: TODO }
+  xanh_sm:   { open_vnd: TODO, first_km: 1, per_km_vnd: TODO, per_min_vnd: TODO }
+  be_bike:   { open_vnd: TODO, first_km: TODO, per_km_vnd: TODO, per_min_vnd: TODO }
+surge: { peak_multiplier: 1.3 }  # assumption from docs, shown as a range

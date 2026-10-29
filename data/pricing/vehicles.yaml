@@ -1,0 +1,8 @@
+# Copied from docs/04_data_and_costs.md §3. Consumption values are typical estimates.
+# TODO(source): verify consumption and parking against a cited source before demo.
+verified: false
+last_updated: TODO-verify
+motorbike_110cc: { fuel: e5_ron92, l_per_100km: 2.0, parking_vnd: 5000 }
+car_sedan:       { fuel: ron95,    l_per_100km: 7.0, parking_vnd: 30000 }
+van_1t:          { fuel: diesel,   l_per_100km: 10.0, capacity_kg: 1000 }
+truck_5t:        { fuel: diesel,   l_per_100km: 18.0, capacity_kg: 5000 }
