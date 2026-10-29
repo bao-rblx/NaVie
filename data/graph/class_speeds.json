@@ -1,0 +1,24 @@
+{
+  "_comment": "Default free-flow speed (km/h) per OSM highway class, used when an edge has no maxspeed tag. TODO(source): replace with values from Thong tu 38/2024/TT-BGTVT speed limits and/or team test drives. Placeholders, not verified.",
+  "verified": false,
+  "last_updated": "TODO-verify",
+  "source": "TODO(source)",
+  "kmh": {
+    "other": 20,
+    "motorway": 100,
+    "trunk": 70,
+    "primary": 50,
+    "secondary": 40,
+    "tertiary": 35,
+    "residential": 25,
+    "unclassified": 25,
+    "service": 15,
+    "living_street": 10,
+    "footway": 5,
+    "path": 5,
+    "pedestrian": 5,
+    "steps": 2,
+    "cycleway": 15,
+    "track": 15
+  }
+}
