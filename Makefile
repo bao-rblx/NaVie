@@ -5,6 +5,7 @@ PY ?= python
 BACKEND := backend
 CITY ?= hcmc
 HAS_FLUTTER := $(shell command -v flutter 2>/dev/null)
+HAS_NODE := $(shell command -v node 2>/dev/null)
 
 .PHONY: setup data run test bench lint
 
@@ -18,12 +19,18 @@ endif
 
 data:
 	cd $(BACKEND) && $(PY) ../scripts/build_graph.py --city $(CITY)
+	cd $(BACKEND) && $(PY) ../scripts/build_geocode.py --city $(CITY)
 
 run:
 	cd $(BACKEND) && $(PY) -m uvicorn navie.main:app --port 8000 --reload
 
 test:
 	cd $(BACKEND) && $(PY) -m pytest
+ifdef HAS_NODE
+	node --test app/web_app/tests/*.test.mjs
+else
+	@echo "node not found: skipping browser navigation tests"
+endif
 ifdef HAS_FLUTTER
 	cd app && flutter test
 else
@@ -35,6 +42,12 @@ bench:
 
 lint:
 	cd $(BACKEND) && $(PY) -m ruff check . ../scripts && $(PY) -m ruff format --check . ../scripts && $(PY) -m mypy navie
+ifdef HAS_NODE
+	node --check app/web_app/app.js
+	node --check app/web_app/navigation.mjs
+	node --check app/web_app/icons.mjs
+	node --check app/web_app/locales.mjs
+endif
 ifdef HAS_FLUTTER
 	cd app && flutter analyze
 else
