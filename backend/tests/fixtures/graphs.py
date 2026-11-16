@@ -110,3 +110,58 @@ def mixed_roads() -> Graph:
         EdgeRecord(4, 2, s(2, 4), highway="primary", motorcycle="no", maxweight="5"),
     ]
     return build_graph(ids, lat, lon, edges, version="fixture-mixed")
+
+
+def named_turn() -> Graph:
+    """0 -Lê Lợi-> 1 -Hai Bà Trưng-> 2: straight east, then turn right (south).
+
+    Used to check FR-31 maneuver text and the street names carried on each turn.
+    The unnamed variant drops both road names so the fallback text can be tested.
+    """
+    ids = [0, 1, 2]
+    lat = [LAT0, LAT0, LAT0 - STEP]
+    lon = [LON0, LON0 + STEP, LON0 + STEP]
+    s = lambda u, v: _straight(lat, lon, u, v)  # noqa: E731
+    edges = [
+        EdgeRecord(0, 1, s(0, 1), highway="primary", name="Lê Lợi"),
+        EdgeRecord(1, 2, s(1, 2), highway="primary", name="Hai Bà Trưng"),
+    ]
+    return build_graph(ids, lat, lon, edges, version="fixture-named")
+
+
+def unnamed_turn() -> Graph:
+    """Same geometry as ``named_turn`` with no ``name`` tags at all."""
+    ids = [0, 1, 2]
+    lat = [LAT0, LAT0, LAT0 - STEP]
+    lon = [LON0, LON0 + STEP, LON0 + STEP]
+    s = lambda u, v: _straight(lat, lon, u, v)  # noqa: E731
+    edges = [
+        EdgeRecord(0, 1, s(0, 1), highway="primary"),
+        EdgeRecord(1, 2, s(1, 2), highway="primary"),
+    ]
+    return build_graph(ids, lat, lon, edges, version="fixture-unnamed")
+
+
+def speed_mix() -> Graph:
+    """Two routes with different road classes, so distance and time disagree.
+
+    0 -residential-> 1 -residential-> 2   : 2 x 1000 m at 25 km/h = 288.0 s (shorter)
+    0 -primary-> 3 -primary-> 2           : 2 x 1400 m at 50 km/h = 201.6 s (faster)
+
+    The distance-optimal path is the slow one, which is exactly the case where
+    "distance / profile top speed" used to under-report the travel time.
+    """
+    ids = [0, 1, 2, 3]
+    lat = [LAT0, LAT0, LAT0, LAT0 + STEP]
+    lon = [LON0, LON0 + STEP, LON0 + 2 * STEP, LON0 + STEP]
+    edges = [
+        EdgeRecord(0, 1, 1000.0, highway="residential"),
+        EdgeRecord(1, 0, 1000.0, highway="residential"),
+        EdgeRecord(1, 2, 1000.0, highway="residential"),
+        EdgeRecord(2, 1, 1000.0, highway="residential"),
+        EdgeRecord(0, 3, 1400.0, highway="primary"),
+        EdgeRecord(3, 0, 1400.0, highway="primary"),
+        EdgeRecord(3, 2, 1400.0, highway="primary"),
+        EdgeRecord(2, 3, 1400.0, highway="primary"),
+    ]
+    return build_graph(ids, lat, lon, edges, version="fixture-speed-mix")
