@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#087f5b">
+  <meta name="description" content="NaVie · Your way through Vietnam">
+  <title>NaVie · Đi theo cách của bạn</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%23087f5b'/%3E%3Cpath d='M11 29V11l18 18V11' fill='none' stroke='white' stroke-width='4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="map" tabindex="0" data-label="mapPreview">
+    <div id="map-scene"><div id="tiles" aria-hidden="true"></div><svg id="route-layer" aria-hidden="true"><g id="route-group"><polyline id="route-shadow" class="route-shadow"/><polyline id="route-line" class="route-line"/></g><g id="explored-group"></g></svg>
+      <div id="origin-pin" class="map-pin origin hidden">A</div><div id="destination-pin" class="map-pin destination hidden">B</div>
+      <div id="driver-pin" class="driver-pin hidden"><span>↑</span></div>
+    </div>
+    <a class="attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>
+  </main>
+  <nav class="rail" data-label="mainNavigation">
+    <a class="brand-mark" href="./" aria-label="NaVie">N<span>↗</span></a>
+    <button data-page="explore" class="rail-item active"><i data-icon="map"></i><span data-i18n="explore"></span></button>
+    <button data-page="saved" class="rail-item"><i data-icon="bookmark"></i><span data-i18n="saved"></span></button>
+    <button data-page="lab" class="rail-item"><i data-icon="lab"></i><span data-i18n="lab"></span></button>
+    <div class="rail-spacer"></div>
+    <button data-page="settings" class="rail-item"><i data-icon="settings"></i><span data-i18n="settings"></span></button>
+    <span class="rail-country">VN</span>
+  </nav>
+  <aside class="workspace" id="workspace">
+    <header class="brand-header"><a href="./" class="wordmark">NaVie<span class="brand-dot">.</span></a><span class="city-pill"><span></span> TP. Hồ Chí Minh</span></header>
+    <section id="page-explore" class="page">
+      <div class="intro"><span class="eyebrow" data-i18n="madeForYourEveryday"></span><h1 data-i18n="whereTo"></h1><p data-i18n="journeySubtitle"></p></div>
+      <div class="trip-fields">
+        <div class="point-row" id="origin-row"><span class="point-dot origin"></span><div class="search-field"><label for="origin-search" data-i18n="searchOrigin"></label><input id="origin-search" type="search" data-placeholder="originPlaceholder" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="origin-suggestions" aria-expanded="false"><div id="origin-suggestions" class="suggestions hidden" role="listbox"></div></div><button class="icon-button subtle" data-pick="origin" data-label="chooseOrigin"><i data-icon="pin"></i></button></div>
+        <div class="field-divider"></div><button id="swap" class="swap icon-button" data-label="swapPlaces"><i data-icon="swap"></i></button>
+        <div class="point-row" id="destination-row"><span class="point-dot destination"></span><div class="search-field"><label for="destination-search" data-i18n="searchDestination"></label><input id="destination-search" type="search" data-placeholder="destinationPlaceholder" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="destination-suggestions" aria-expanded="false"><div id="destination-suggestions" class="suggestions hidden" role="listbox"></div></div><button class="icon-button subtle" data-pick="destination" data-label="chooseDestination"><i data-icon="pin"></i></button></div>
+      </div>
+      <div class="quick-row"><button id="use-location" class="text-button"><i data-icon="locate"></i><span data-i18n="useMyLocation"></span></button><button id="reset" class="text-button muted" data-i18n="resetTrip"></button></div>
+      <div class="section-label" data-i18n="travelYourWay"></div>
+      <div class="modes" role="group" data-label="travelYourWay">
+        <button data-mode="all"><i data-icon="route"></i><span data-i18n="compareAll"></span></button>
+        <button data-mode="motorbike" class="selected"><i data-icon="motorbike"></i><span data-i18n="modeMotorbike"></span></button>
+        <button data-mode="car"><i data-icon="car"></i><span data-i18n="modeCar"></span></button>
+        <button data-mode="walk"><i data-icon="walk"></i><span data-i18n="modeWalk"></span></button>
+        <button data-mode="taxi"><i data-icon="taxi"></i><span data-i18n="modeTaxi"></span></button>
+      </div>
+      <button id="find-route" class="primary" disabled><i data-icon="route"></i><span id="find-label" data-i18n="findRoute"></span><i data-icon="arrow-right"></i></button>
+      <p id="message" class="message" role="status" aria-live="polite"></p>
+      <section id="welcome" class="welcome"><div class="section-heading"><h2 data-i18n="aLittleCloser"></h2><i data-icon="sparkle"></i></div><div class="welcome-card"><div class="welcome-art"><i data-icon="route"></i></div><div><h3 data-i18n="yourCityYourPace"></h3><p data-i18n="mapHelp"></p></div></div><div id="recent"></div><p class="coverage-note"><i data-icon="shield"></i><span data-i18n="coverageNote"></span></p></section>
+      <section id="route-results" class="hidden"><div class="section-heading"><h2 data-i18n="routeOptions"></h2><select id="sort" data-label="sortRoutes"><option value="fastest" data-i18n="fastest"></option><option value="cheapest" data-i18n="cheapest"></option><option value="balanced" data-i18n="balanced"></option></select></div><div id="results" class="results"></div><div id="trip-detail"></div><div class="start-actions"><button id="start-drive" class="primary"><i data-icon="navigation"></i><span data-i18n="startNavigation"></span></button><button id="preview-drive" class="secondary"><i data-icon="play"></i><span data-i18n="previewDrive"></span></button></div></section>
+    </section>
+    <section id="page-saved" class="page hidden"><div class="intro"><span class="eyebrow" data-i18n="yourPlaces"></span><h1 data-i18n="saved"></h1><p data-i18n="savedSubtitle"></p></div><button id="save-destination" class="primary"><i data-icon="bookmark"></i><span data-i18n="saveDestination"></span></button><div id="saved-list"></div></section>
+    <section id="page-lab" class="page hidden"><div class="intro"><span class="eyebrow" data-i18n="behindTheRoute"></span><h1 data-i18n="lab"></h1><p data-i18n="labSubtitle"></p></div><div class="info-card" data-i18n="labHelp"></div><div class="lab-selectors"><label>A<select id="algorithm-a"><option value="astar">A*</option><option value="ucs">Dijkstra</option><option value="greedy">Greedy</option><option value="bidir_dijkstra">Bidirectional Dijkstra</option></select></label><label>B<select id="algorithm-b"><option value="ucs">Dijkstra</option><option value="astar">A*</option><option value="greedy">Greedy</option><option value="bidir_dijkstra">Bidirectional Dijkstra</option></select></label></div><button id="run-lab" class="primary"><i data-icon="play"></i><span data-i18n="compareAlgorithms"></span></button><div id="lab-results" aria-live="polite"></div></section>
+    <section id="page-settings" class="page hidden"><div class="intro"><span class="eyebrow" data-i18n="makeItYours"></span><h1 data-i18n="settings"></h1><p data-i18n="settingsSubtitle"></p></div><div class="settings-list">
+      <label><span><i data-icon="globe"></i><span data-i18n="language"></span></span><select id="language"><option value="vi">Tiếng Việt</option><option value="en">English</option></select></label>
+      <label><span><i data-icon="moon"></i><span data-i18n="appearance"></span></span><select id="theme"><option value="light" data-i18n="dayTheme"></option><option value="dark" data-i18n="nightTheme"></option><option value="auto" data-i18n="systemTheme"></option></select></label>
+      <label><span><i data-icon="volume"></i><span data-i18n="voiceGuidance"></span></span><input id="voice" type="checkbox" role="switch"></label>
+      <label><span><i data-icon="sparkle"></i><span data-i18n="reduceMotion"></span></span><input id="reduce-motion" type="checkbox" role="switch"></label>
+      </div><div class="info-card"><i data-icon="shield"></i><h3 data-i18n="privacyTitle"></h3><p data-i18n="privacyBody"></p></div><button id="clear-saved" class="secondary" data-i18n="clearSaved"></button><p class="coverage-note" data-i18n="appLimitations"></p>
+    </section>
+    <footer class="panel-footer"><span class="mini-logo">N↗</span><span data-i18n="footerTagline"></span><span>01 / VN</span></footer>
+  </aside>
+  <div class="map-top"><span class="map-city"><i data-icon="pin"></i><span>Thành phố Hồ Chí Minh<small data-i18n="exploreCity"></small></span></span><button id="collapse-panel" class="icon-button" data-label="togglePanel"><i data-icon="panel"></i></button></div>
+  <div class="map-controls"><button id="map-theme" class="icon-button" data-label="toggleTheme"><i data-icon="moon"></i></button><div class="zoom-group"><button id="zoom-in" class="icon-button" data-label="zoomIn"><i data-icon="plus"></i></button><button id="zoom-out" class="icon-button" data-label="zoomOut"><i data-icon="minus"></i></button></div><button id="recenter" class="icon-button" data-label="recenter"><i data-icon="locate"></i></button><button id="north" class="icon-button compass" data-label="northUp">N<span>↑</span></button></div>
+  <div id="map-hint" class="map-hint"><i data-icon="pin"></i><span data-i18n="mapHint"></span><kbd>Esc</kbd></div>
+  <section id="driver" class="hidden" data-label="driverMode">
+    <div class="maneuver-banner"><span id="turn-icon" class="turn-icon">↑</span><div><span id="turn-distance" class="turn-distance"></span><h1 id="turn-text"></h1><span id="drive-status" class="drive-status"></span></div><button id="mute-drive" class="icon-button" data-label="voiceGuidance"><i data-icon="volume"></i></button></div>
+    <div class="drive-side"><span class="speed-dial"><strong id="speed">—</strong><small>km/h</small></span><span class="speed-limit">—<small data-i18n="speedLimit"></small></span></div>
+    <div class="drive-bottom"><div class="drive-summary"><div><strong id="remaining-time"></strong><span data-i18n="remaining"></span></div><div><strong id="remaining-distance"></strong><span data-i18n="distance"></span></div><div><strong id="arrival-time"></strong><span data-i18n="arrivalTime"></span></div></div><div id="simulation-controls" class="simulation-controls hidden"><span class="demo-badge" data-i18n="simulation"></span><button id="pause-drive" class="icon-button" data-label="pauseResume"><i data-icon="pause"></i></button><label><span data-i18n="playbackSpeed"></span><select id="simulation-speed"><option value="1">1×</option><option value="3" selected>3×</option><option value="5">5×</option><option value="10">10×</option></select></label></div><div class="driver-actions"><button id="drive-overview" class="secondary"><i data-icon="map"></i><span data-i18n="routeOverview"></span></button><button id="end-drive" class="end-button"><i data-icon="close"></i><span data-i18n="endNavigation"></span></button></div></div>
+  </section>
+  <dialog id="arrival-dialog"><div class="arrival-art"><i data-icon="check"></i></div><span class="eyebrow" data-i18n="niceJourney"></span><h1 data-i18n="youArrived"></h1><p id="arrival-place"></p><button id="arrival-done" class="primary" data-i18n="done"></button></dialog>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
