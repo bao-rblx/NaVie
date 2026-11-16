@@ -123,6 +123,21 @@ class Graph:
             self.__dict__["_py_csr"] = cached
         return cached
 
+    def ensure_reverse(self) -> None:
+        """Build the transposed CSR only if it is missing (idempotent).
+
+        load() and build_graph() already build it, so search calls must use this
+        instead of build_reverse(): rebuilding is a full argsort over every edge
+        (25 ms on the HCMC graph) that would otherwise be paid on every request.
+        """
+        if (
+            self.rev_indptr is not None
+            and self.rev_indices is not None
+            and self.rev_edge is not None
+        ):
+            return
+        self.build_reverse()
+
     def build_reverse(self) -> None:
         """Build the transposed CSR used by bidirectional search."""
         src = self.edge_source()
