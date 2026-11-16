@@ -79,3 +79,4 @@ $0. Everything runs on team laptops (backend) and free services. Demo backend is
 | `docs/04_data_and_costs.md` | Data sources, pipelines, cost formulas, file schemas |
 | `docs/05_roadmap.md` | Weekly plan, roles, agent task cards |
 | `docs/06_report_and_presentation.md` | Essay and slide outlines |
+| `docs/07_work_plan.md` | Who does what: 4 roles, 7 waves, 28 PR-sized packs with exact file scopes |
