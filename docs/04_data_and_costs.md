@@ -15,7 +15,7 @@ Start with HCMC only; add Hanoi once the pipeline works. Keep graphs ≤ ~300k n
 | Download OSM roads per bbox | `scripts/build_graph.py --city hcmc` (osmnx `graph_from_bbox`, `network_type="all"`, simplify) | `data/raw/hcmc.graphml` |
 | Convert to CSR + flags | same script | `data/build/hcmc.npz`, `hcmc_names.json` |
 | Landmarks for ALT | `scripts/build_landmarks.py` | `data/build/hcmc_alt_{mode}.npz` |
-| POI / address index | `scripts/build_geocode.py` (OSM names, `amenity`, `addr:*`) | `data/build/hcmc_geocode.parquet` |
+| POI / address index | `scripts/build_geocode.py` (OSM names, `amenity`, `addr:*`) | `data/build/hcmc_geocode.json` |
 | Simulated traffic | `scripts/simulate_traffic.py --seed 42` | `data/traffic/simulated_observations.csv` |
 | Fit BN | `scripts/fit_bn.py` | `data/build/bn_params.json` |
 `data/raw` and `data/build` are git-ignored; scripts are deterministic and cached.
