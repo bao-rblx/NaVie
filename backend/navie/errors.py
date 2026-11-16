@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import Literal
 
-ErrorCode = Literal["NO_PATH", "OUT_OF_COVERAGE", "VALIDATION", "LLM_UNAVAILABLE"]
+ErrorCode = Literal[
+    "NO_PATH",
+    "OUT_OF_COVERAGE",
+    "VALIDATION",
+    "LLM_UNAVAILABLE",
+    "NOT_IMPLEMENTED",
+]
 
 
 class NavieError(Exception):
@@ -31,4 +37,17 @@ def out_of_coverage() -> NavieError:
         "OUT_OF_COVERAGE",
         "Vị trí nằm ngoài vùng bản đồ được hỗ trợ.",
         "Location is outside the supported map area.",
+    )
+
+
+def not_implemented(name: str) -> NavieError:
+    """Raise for an algorithm label the API advertises but does not implement yet.
+
+    Never fall back to a different algorithm: ``stats.algorithm`` must only ever name
+    the algorithm that actually ran.
+    """
+    return NavieError(
+        "NOT_IMPLEMENTED",
+        f"Thuật toán {name} chưa được hỗ trợ.",
+        f"The {name} algorithm is not implemented yet.",
     )
