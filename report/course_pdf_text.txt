@@ -1,0 +1,153 @@
+261_72ITSE30303_01 – INTRODUCTION TO AI
+Lecturer: Dr. Huy T. Nguyen
+
+
+Final Project v1.0
+Tentative Deadline
+
+   -   10/09/2026 - Team & Topic for Final Project
+   -   02/10/2026 - Proposal presentation (10 mins)
+   -   12/11/2026 - Last lecture, final ready
+   -   19/11/2026 - Oral presentation (15 mins)
+   -   22/11/2026 - ETC submission
+
+
+
+Instructions:
+
+1. The project consists of a written essay and oral presentation.
+
+2. Essays are 10 pages (not including cover page) and are double spaced. Please
+
+include a cover page with the title, your team members including name, and student ID.
+
+3. The essay must include a clearly defined introduction, discussion, and
+
+conclusion.
+
+4. If proofs are too long to be included within the page limit, they must be sketched
+
+with full citations provided.
+
+5. Each project requires 15 minutes for oral presentation.
+
+*Any instances of copying, plagiarism will result in a low score for both teams.
+
+
+
+Project list
+Category 1: Intelligent Agents & Problem Solving
+
+These topics focus on foundational AI concepts like search, game theory, and constraint
+satisfaction.
+
+Project: Pathfinding in Complex Environments:
+Implement and compare different search algorithms (e.g., A*, IDA*, bidirectional search,
+local search like Hill Climbing or Simulated Annealing) on a complex map (e.g., a labyrinth,
+a city map with traffic, a game level with obstacles).
+
+   •   Possible Extensions: Implement pathfinding for multiple agents or incorporate
+       dynamic obstacles.
+
+Project: Game Playing AI:
+
+Develop an AI agent to play a classic board game (e.g., Chess, Checkers, Othello, Connect
+Four, Tic-Tac-Toe variant) using adversarial search algorithms (e.g., Minimax with Alpha-Beta
+Pruning).
+
+   •   Possible Extensions: Implement Expectimax for games with uncertainty (e.g.,
+       simple card games), or use a neural network to evaluate board states.
+
+Project: Constraint Satisfaction Problem (CSP) Solver:
+
+Implement a CSP solver to tackle problems like Sudoku, N-Queens, map coloring, or a
+simple scheduling problem.
+
+   •   Possible Extensions: Explore different heuristics (e.g., MRV, LCV), pruning
+       techniques (e.g., forward checking, arc consistency), or local search for CSPs.
+
+
+
+Category 2: Knowledge, Reasoning, and Planning
+
+These topics delve into logical agents, knowledge representation, and automated planning.
+
+Project: Simple Logical Agent / Expert System:
+
+Build a small rule-based system (e.g., using propositional logic or a simplified first-order
+logic) for a specific domain (e.g., a simple medical diagnostic system, a recommender for a
+small set of products, a basic animal identification system).
+
+   •   Possible Extensions: Implement forward or backward chaining inference.
+
+Project: Knowledge Representation and Querying:
+
+Design a small knowledge base for a specific domain (e.g., family tree, geographic facts,
+academic courses) using a chosen representation (e.g., logical predicates, semantic
+network, simple ontology). Implement a system to query this knowledge base.
+
+   •   Possible Extensions: Implement simple inference rules or consistency checking.
+Category 3: Uncertain Knowledge and Reasoning
+
+These topics focus on probability, Bayesian networks, decision-making, and multi-agent
+systems.
+
+Project: Bayesian Network for Diagnosis/Prediction:
+
+Build a simple Bayesian Network for a small, well-defined problem (e.g., a simplified
+medical diagnosis given symptoms, predicting weather, or simple equipment failure
+diagnosis). Implement inference (e.g., enumeration, variable elimination, or Gibbs sampling
+for larger networks).
+
+   •   Possible Extensions: Use real-world (or realistically simulated) data to learn
+       parameters.
+
+Project: Decision-Making Agent (Utility Theory/MDPs):
+
+Design an agent that makes decisions under uncertainty using utility theory or Markov
+Decision Processes (MDPs). Examples could include a simple stock trading agent, a game
+player in a stochastic environment, or a robot navigating a grid world with uncertain
+outcomes.
+
+   •   Possible Extensions: Implement Value Iteration or Policy Iteration.
+
+
+Category 4: Machine Learning
+
+Project: Supervised Learning for Classification/Regression:
+
+Implement a fundamental supervised learning algorithm (e.g., Decision Trees, Naive Bayes,
+K-Nearest Neighbors, or a simple Perceptron/Neural Network) from scratch (or using basic
+libraries like NumPy) to solve a classification or regression problem on a public dataset (e.g.,
+Iris, Titanic, Boston Housing).
+
+   •   Possible Extensions: Compare different algorithms, implement cross-validation, or
+       explore feature engineering.
+
+Project: Reinforcement Learning (RL) in a Grid World:
+
+Implement a basic RL algorithm (e.g., Q-learning or SARSA) to solve a simple navigation or
+reward collection problem in a grid world environment.
+
+   •   Possible Extensions: Introduce obstacles, stochastic actions, or different reward
+       functions.
+
+Project: Simple Clustering Algorithm:
+Implement a clustering algorithm (e.g., K-Means, Hierarchical Clustering) to group data
+points from a public dataset.
+
+   •   Possible Extensions: Compare different clustering metrics, or visualize the clusters
+       effectively.
+
+
+Tips for Success:
+
+   -   Choose a Project that Interests You: Select a project that aligns with your interests to
+       make the learning process more engaging.
+   -   Start Early: Begin your project well in advance of the deadline to allow sufficient time
+       for research, implementation, and analysis.
+   -   Break Down the Project: Divide the project into smaller, manageable tasks to make it
+       less overwhelming.
+
+Good luck with your projects!
+
