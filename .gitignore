@@ -33,6 +33,8 @@ app/pubspec.lock
 Thumbs.db
 .idea/
 .vscode/
+~$*
+*.tmp
 
 # Large source files
 *.pdf
