@@ -36,3 +36,13 @@ Thumbs.db
 
 # Large source files
 *.pdf
+
+# Builds & Portable
+build/
+dist/
+output/
+*.spec
+*.zip
+
+# Temporary scratch & capture files
+_*
