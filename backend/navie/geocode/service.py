@@ -80,17 +80,32 @@ class Geocoder:
             return []
 
         ranked: list[tuple[float, str, Place]] = []
+        needle_words = needle.split()
         for item in self._index:
             name = normalize(item.place.name)
+            search_words = set(item.search_text.split())
+            all_words_present = (
+                all(w in search_words for w in needle_words) if needle_words else False
+            )
+
             score = max(
                 float(fuzz.WRatio(needle, item.search_text)),
                 float(fuzz.token_set_ratio(needle, item.search_text)),
             )
+
+            if not all_words_present and len(needle_words) > 1 and needle not in item.search_text:
+                score *= 0.65
+
             if name == needle:
-                score += 30.0
+                score += 50.0
             elif name.startswith(needle):
-                score += 18.0
+                score += 35.0
             elif needle in name:
+                score += 25.0
+            elif all_words_present:
+                score += 15.0
+
+            if item.place.kind not in ("road", "unknown", "place"):
                 score += 10.0
 
             if near is not None:
@@ -106,7 +121,7 @@ class Geocoder:
         ranked.sort(key=lambda row: (-row[0], row[1]))
         local = [place for _score, _name, place in ranked[:limit]]
         has_exact_local = any(normalize(place.name) == needle for place in local)
-        if self.online_search is None or has_exact_local:
+        if self.online_search is None or has_exact_local or (local and ranked[0][0] >= 85.0):
             return local
 
         online = self.online_search(query, limit)
@@ -145,7 +160,7 @@ def search_osm_online(city: str, query: str, limit: int) -> list[Place]:
     )
     try:
         with _NOMINATIM_LOCK:
-            wait_seconds = 1.05 - (time.monotonic() - _LAST_NOMINATIM_REQUEST)
+            wait_seconds = 0.25 - (time.monotonic() - _LAST_NOMINATIM_REQUEST)
             if wait_seconds > 0:
                 time.sleep(wait_seconds)
             with urllib.request.urlopen(request, timeout=8) as response:
