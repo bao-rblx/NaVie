@@ -19,6 +19,7 @@ data/build/*
 !data/raw/.gitkeep
 !data/build/.gitkeep
 data/navie.db
+backend/cache/
 
 # Flutter
 app/.dart_tool/
