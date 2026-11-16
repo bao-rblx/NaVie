@@ -139,5 +139,17 @@
   "navigationReady": "Ready when you are",
   "chooseTravelMode": "Choose your travel mode",
   "navigationPermission": "Location permission is needed for navigation. You can still preview the drive.",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "coordinatePoint": "Coordinate point",
+  "algorithmComparisonSummary": "Algorithm comparison summary",
+  "winner": "Winner",
+  "comparison": "Comparison",
+  "metric": "Metric",
+  "fewerNodes": "fewer nodes",
+  "faster": "faster",
+  "sameDistance": "Same distance",
+  "compareBoth": "Compare both on map",
+  "presetRoutes": "Popular benchmark routes",
+  "noOriginSelected": "Origin not selected",
+  "noDestinationSelected": "Destination not selected"
 }

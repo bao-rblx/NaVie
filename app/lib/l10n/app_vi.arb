@@ -167,5 +167,17 @@
   "navigationReady": "Sẵn sàng lên đường",
   "chooseTravelMode": "Chọn phương tiện",
   "navigationPermission": "Cần quyền vị trí để dẫn đường. Bạn vẫn có thể xem thử hành trình.",
-  "cancel": "Hủy"
+  "cancel": "Hủy",
+  "coordinatePoint": "Tọa độ GPS",
+  "algorithmComparisonSummary": "Tổng quan so sánh thuật toán",
+  "winner": "Tối ưu hơn",
+  "comparison": "So sánh",
+  "metric": "Chỉ số",
+  "fewerNodes": "ít nút duyệt hơn",
+  "faster": "nhanh hơn",
+  "sameDistance": "Khoảng cách bằng nhau",
+  "compareBoth": "Xem cả hai trên bản đồ",
+  "presetRoutes": "Tuyến thử nghiệm mẫu",
+  "noOriginSelected": "Chưa chọn điểm đi",
+  "noDestinationSelected": "Chưa chọn điểm đến"
 }

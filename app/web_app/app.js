@@ -1,3 +1,10 @@
+function parseCoordinate(text) {
+  const match = text.trim().match(/^(-?\d{1,2}(?:\.\d+)?)[,\s]+(-?\d{1,3}(?:\.\d+)?)$/);
+  if (!match) return null;
+  const lat = parseFloat(match[1]), lon = parseFloat(match[2]);
+  if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) return [lat, lon];
+  return null;
+}
 import { DriveSession, ease, pointAt, shortestArc, sortOptions, tripQuery } from './navigation.mjs';
 import { icon } from './icons.mjs';
 import { locales } from './locales.mjs';
@@ -10,7 +17,7 @@ const fields = ['origin', 'destination'];
 const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(`navie.${key}`)) ?? fallback; } catch { return fallback; } };
 const write = (key, value) => { try { localStorage.setItem(`navie.${key}`, JSON.stringify(value)); } catch { toast(t('storageUnavailable')); } };
 const settings = { language: 'vi', theme: 'light', voice: true, reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches, ...read('settings', {}) };
-let strings = {}, toastTimer, driveTimer, watchId = null, drive = null, driveGeneration = 0, rerouteController, routingController;
+let strings = {}, toastTimer, driveTimer, previewAnimFrame = null, watchId = null, drive = null, driveGeneration = 0, rerouteController, routingController;
 const state = { page: 'explore', origin: null, destination: null, picking: null, mode: 'motorbike', options: [], selected: null, busy: false, revision: 0, saved: read('saved', []), recent: read('recent', []), explored: [], preview: false, paused: false, following: true, rerouting: false };
 const search = { origin: { serial: 0 }, destination: { serial: 0 } };
 // `camera` is what is on screen; `cameraTarget` is where a programmatic move is
@@ -21,8 +28,8 @@ const cameraTarget = { center: CENTER, zoom: 14, rotation: 0 };
 const map = $('#map'), tiles = $('#tiles');
 const TILE_CAP = 220;                    // LRU budget for decoded 256px tiles and their DOM nodes
 const tileCache = new Map();             // key -> <img>, insertion order is recency order
-const routeLayer = { geometry: null, drawn: null, zoom: 0, points: '', transform: '', group: $('#route-group'), shadow: $('#route-shadow'), line: $('#route-line') };
-const exploredLayer = { drawn: [], zoom: 0, transform: '', group: $('#explored-group') };
+const routeLayer = { geometry: null, drawn: null, zoom: 0, ref: null, points: '', transform: '', group: $('#route-group'), shadow: $('#route-shadow'), line: $('#route-line') };
+const exploredLayer = { drawn: [], zoom: 0, ref: null, transform: '', group: $('#explored-group') };
 const pinRotation = { current: 0, target: 0 };
 const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let mapFrame, cameraFrame, cameraLast, sceneTransform, explorationTimer;
@@ -113,54 +120,86 @@ function moveCamera(center, rotation = camera.rotation) {
   cameraTarget.center = center; cameraTarget.rotation = rotation;
   animateCamera();
 }
-// The two polylines live in index.html and are mutated in place. Points are held in
-// world pixels at the layer's own zoom; one group transform places them on screen,
-// so easing and panning translate the group instead of re-projecting geometry.
-const worldPoints = (geometry, zoom) => {
+// The polylines and explored circles are relative to a local reference origin
+// (layer.ref) so world coordinates never exceed 32-bit float mantissa precision (>16.7M).
+const worldPoints = (geometry, zoom, ref = [0, 0]) => {
   let points = '';
-  for (const point of geometry) { const p = world(point, zoom); points += `${p[0].toFixed(1)},${p[1].toFixed(1)} `; }
+  for (const point of geometry) {
+    const p = world(point, zoom);
+    points += `${(p[0] - ref[0]).toFixed(1)},${(p[1] - ref[1]).toFixed(1)} `;
+  }
   return points.trimEnd();
 };
-// Points are projected once at an integer zoom; panning and a zoom that is still
-// easing are absorbed by one group transform, so neither re-projects the geometry.
+
 function placeLayer(layer, width, height) {
+  if (!layer.ref) return;
   const scale = 2 ** (camera.zoom - layer.zoom);
   const center = world(camera.center, layer.zoom);
-  const transform = `translate(${(width / 2 - center[0] * scale).toFixed(2)} ${(height / 2 - center[1] * scale).toFixed(2)}) scale(${scale.toFixed(4)})`;
+  const tx = width / 2 + (layer.ref[0] - center[0]) * scale;
+  const ty = height / 2 + (layer.ref[1] - center[1]) * scale;
+  const transform = `translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${scale.toFixed(4)})`;
   if (transform === layer.transform) return;
-  layer.transform = transform; layer.group.setAttribute('transform', transform);
+  layer.transform = transform;
+  layer.group.setAttribute('transform', transform);
 }
+
 function drawRoute(geometry, width, height) {
   const zoom = Math.round(camera.zoom);
-  const points = geometry?.length ? worldPoints(geometry, zoom) : '';
+  if (!geometry?.length) {
+    routeLayer.points = '';
+    routeLayer.shadow.setAttribute('points', '');
+    routeLayer.line.setAttribute('points', '');
+    routeLayer.group.classList.add('hidden');
+    routeLayer.geometry = null;
+    routeLayer.drawn = null;
+    routeLayer.ref = null;
+    return;
+  }
+  const ref = world(geometry[0], zoom);
+  routeLayer.ref = ref;
+  const points = worldPoints(geometry, zoom, ref);
   if (points !== routeLayer.points) {
     routeLayer.points = points;
-    routeLayer.shadow.setAttribute('points', points); routeLayer.line.setAttribute('points', points);
+    routeLayer.shadow.setAttribute('points', points);
+    routeLayer.line.setAttribute('points', points);
   }
-  routeLayer.geometry = geometry; routeLayer.zoom = zoom; routeLayer.drawn = geometry;
-  routeLayer.group.classList.toggle('hidden', !points);
+  routeLayer.geometry = geometry;
+  routeLayer.zoom = zoom;
+  routeLayer.drawn = geometry;
+  routeLayer.group.classList.remove('hidden');
   placeLayer(routeLayer, width, height);
 }
-// The circle nodes are reused too: create or drop only when the explored array changes.
-// Circles are projected at exploredLayer.zoom; placeLayer's scale carries any later zoom
-// change, so panning and pinching never touch the up-to-5 000 nodes.
+
 function drawExplored(points, width, height) {
   const circles = exploredLayer.group.childNodes;
   while (circles.length > points.length) circles[circles.length - 1].remove();
   while (circles.length < points.length) {
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    circle.setAttribute('r', '2.5'); circle.setAttribute('fill', '#5c66c7'); circle.setAttribute('opacity', '.45');
+    circle.setAttribute('r', '2.5');
+    circle.setAttribute('opacity', '.45');
     exploredLayer.group.append(circle);
   }
-  // The lab animation only ever appends to the previous array, so re-coordinate the
-  // tail; any other change (a new selection, a big zoom jump) reprojects everything.
-  const grew = exploredLayer.drawn.length <= points.length && points[0] === exploredLayer.drawn[0];
+  if (!points.length) {
+    exploredLayer.drawn = points;
+    exploredLayer.ref = null;
+    return;
+  }
   const jumped = Math.abs(Math.round(camera.zoom) - exploredLayer.zoom) > 1;
-  if (jumped) exploredLayer.zoom = Math.round(camera.zoom);
+  if (jumped || !exploredLayer.ref) {
+    exploredLayer.zoom = Math.round(camera.zoom);
+    const firstPoint = points[0] ? (Array.isArray(points[0]) ? points[0] : points[0].point) : camera.center;
+    exploredLayer.ref = world(firstPoint, exploredLayer.zoom);
+  }
+  const ref = exploredLayer.ref;
   const drawn = exploredLayer.group.childNodes;
-  for (let index = grew && !jumped ? exploredLayer.drawn.length : 0; index < points.length; index++) {
-    const p = world(points[index], exploredLayer.zoom);
-    drawn[index].setAttribute('cx', p[0].toFixed(1)); drawn[index].setAttribute('cy', p[1].toFixed(1));
+  for (let index = 0; index < points.length; index++) {
+    const item = points[index];
+    const pt = Array.isArray(item) ? item : item.point;
+    const color = (item && item.color) ? item.color : '#5c66c7';
+    const p = world(pt, exploredLayer.zoom);
+    drawn[index].setAttribute('cx', (p[0] - ref[0]).toFixed(1));
+    drawn[index].setAttribute('cy', (p[1] - ref[1]).toFixed(1));
+    drawn[index].setAttribute('fill', color);
   }
   exploredLayer.drawn = points;
   placeLayer(exploredLayer, width, height);
@@ -186,8 +225,10 @@ function renderMap() {
         image = new Image(); image.className = 'tile'; image.alt = ''; image.draggable = false;
         image.src = `https://tile.openstreetmap.org/${key}.png`; tileCache.set(key, image);
       }
-      // A visible tile is already parented: move it with a transform, never re-append it.
-      image.style.transform = `translate(${x * 256 - left}px,${y * 256 - top}px) scale(${scale})`;
+      // Tile top-left in screen pixels relative to center
+      const screenX = width / 2 + (x * 256 - center[0]) * scale;
+      const screenY = height / 2 + (y * 256 - center[1]) * scale;
+      image.style.transform = `translate(${screenX.toFixed(2)}px,${screenY.toFixed(2)}px) scale(${scale.toFixed(4)})`;
       if (image.parentNode !== tiles) tiles.append(image);
     }
   }
@@ -203,7 +244,9 @@ function renderMap() {
   const rotation = Math.round(camera.rotation * 1000) / 1000;
   if (rotation !== sceneTransform) { sceneTransform = rotation; $('#map-scene').style.transform = `rotate(${rotation}deg)`; }
   for (const field of fields) {
-    const pin = $(`#${field}-pin`), place = state[field]; pin.classList.toggle('hidden', !place || !!drive);
+    const pin = $(`#${field}-pin`), place = state[field];
+    const hidden = !place || (drive ? field === 'origin' : false);
+    pin.classList.toggle('hidden', hidden);
     if (place) { const p = pixel(place.latlon); pin.style.left = `${p[0]}px`; pin.style.top = `${p[1]}px`; }
   }
   const geometry = drive?.route.geometry || state.selected?.legs[0]?.geometry || null;
@@ -261,7 +304,7 @@ map.addEventListener('pointerup', event => {
   drag = null;
 });
 map.addEventListener('pointercancel', () => { pointers.clear(); drag = null; pinch = null; });
-map.addEventListener('wheel', event => { event.preventDefault(); const rect = map.getBoundingClientRect(); changeZoom(event.deltaY < 0 ? 1 : -1, [event.clientX - rect.left,event.clientY - rect.top]); }, { passive: false });
+map.addEventListener('wheel', event => { event.preventDefault(); const rect = map.getBoundingClientRect(); changeZoom(event.deltaY < 0 ? 0.25 : -0.25, [event.clientX - rect.left, event.clientY - rect.top]); }, { passive: false });
 map.addEventListener('keydown', event => {
   if (['+', '=', '-'].includes(event.key)) { event.preventDefault(); changeZoom(event.key === '-' ? -1 : 1); }
   const direction = { ArrowLeft: [-100,0], ArrowRight: [100,0], ArrowUp: [0,-100], ArrowDown: [0,100] }[event.key];
@@ -281,6 +324,12 @@ function update() {
   $$('[data-mode]').forEach(button => { const selected = button.dataset.mode === state.mode; button.classList.toggle('selected',selected); button.setAttribute('aria-pressed',String(selected)); });
   $('#map-hint span').textContent = t(state.picking === 'origin' ? 'chooseOrigin' : state.picking === 'destination' ? 'chooseDestination' : 'mapHint');
   $('#save-destination').disabled = !state.destination;
+  const originLabel = state.origin ? state.origin.name : t('noOriginSelected');
+  const destLabel = state.destination ? state.destination.name : t('noDestinationSelected');
+  const originEl = $('#lab-origin-name');
+  const destEl = $('#lab-destination-name');
+  if (originEl) originEl.textContent = originLabel;
+  if (destEl) destEl.textContent = destLabel;
   scheduleMap();
 }
 function setPage(page) {
@@ -295,12 +344,21 @@ function closeSuggestions(field) { for (const key of field ? [field] : fields) {
 function showSearchStatus(field, key) { const panel = $(`#${field}-suggestions`); panel.innerHTML = `<p class="suggestion-status">${esc(t(key))}</p>`; panel.classList.remove('hidden'); $(`#${field}-search`).setAttribute('aria-expanded','true'); }
 function scheduleSearch(field) {
   cancelSearch(field); const query = $(`#${field}-search`).value.trim();
+  const coord = parseCoordinate(query);
+  if (coord) {
+    const panel = $(`#${field}-suggestions`); panel.replaceChildren();
+    const button = document.createElement('button'); button.className = 'suggestion'; button.setAttribute('role','option');
+    button.innerHTML = `${markupIcon('pin')}<span><strong>${esc(t('coordinatePoint'))}</strong><small>${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}</small></span>`;
+    button.onclick = () => selectPlace(field, { name: `${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`, latlon: coord });
+    panel.append(button); panel.classList.remove('hidden'); $(`#${field}-search`).setAttribute('aria-expanded','true');
+    return;
+  }
   if (query.length < 2) { closeSuggestions(field); return; }
   const serial = search[field].serial; showSearchStatus(field, 'searchingPlaces');
   search[field].timer = setTimeout(async () => {
     const controller = new AbortController(); search[field].controller = controller;
     try {
-      const near = state[field === 'origin' ? 'destination' : 'origin']?.latlon || CENTER;
+      const near = state[field === 'origin' ? 'destination' : 'origin']?.latlon || camera.center || CENTER;
       const places = await request(`/v1/geocode?${new URLSearchParams({q:query,near:near.join(',')})}`, null, controller.signal);
       if (serial !== search[field].serial) return;
       const panel = $(`#${field}-suggestions`); panel.replaceChildren();
@@ -408,8 +466,27 @@ function startDrive(preview) {
   pinRotation.current = pinRotation.target = drive.heading || 0;
   applySettings(); renderDrive();
   if (preview) {
-    speak(t('previewStarted')); let last=performance.now();
-    driveTimer=setInterval(()=>{const now=performance.now(),delta=Math.min(2,(now-last)/1000);last=now;if(!drive || state.paused)return;const p=drive.advance(delta*Number($('#simulation-speed').value));drive.position=p.point;drive.heading=p.heading;renderDrive();if(drive.progress>=drive.metrics.total)arrive();},250);
+    speak(t('previewStarted'));
+    let last = performance.now();
+    const generation = driveGeneration;
+    const stepPreview = now => {
+      if (!drive || generation !== driveGeneration) return;
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      if (!state.paused) {
+        const speedMultiplier = Number($('#simulation-speed').value) || 1;
+        const p = drive.advance(dt * speedMultiplier);
+        drive.position = p.point;
+        drive.heading = p.heading;
+        renderDrive();
+        if (drive.progress >= drive.metrics.total) {
+          arrive();
+          return;
+        }
+      }
+      previewAnimFrame = requestAnimationFrame(stepPreview);
+    };
+    previewAnimFrame = requestAnimationFrame(stepPreview);
   } else {
     const generation=driveGeneration;
     toast(t('waitingGps'));
@@ -452,45 +529,242 @@ async function reroute() {
   }catch(error){if(generation===driveGeneration && error.name!=='AbortError')toast(t('rerouteFailed'));}
   finally{if(generation===driveGeneration){state.rerouting=false;renderDrive();}}
 }
-function stopResources(){clearInterval(driveTimer);if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}rerouteController?.abort();stopSpeaking();}
+function stopResources(){if(previewAnimFrame){cancelAnimationFrame(previewAnimFrame);previewAnimFrame=null;}clearInterval(driveTimer);if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}rerouteController?.abort();stopSpeaking();}
 function endDrive(){stopResources();driveGeneration++;drive=null;state.rerouting=false;document.body.classList.remove('driving');$('#driver').classList.add('hidden');$('#driver-pin').classList.add('hidden');pinRotation.current=pinRotation.target=0;if(state.selected?.legs[0])fitRoute(state.selected.legs[0].geometry);else{cameraTarget.rotation=0;animateCamera();}$('#start-drive').focus();}
 function arrive(){const place=state.destination?.name;endDrive();speak(t('youArrived'));$('#arrival-place').textContent=place;$('#arrival-dialog').showModal();}
 
-let labController, labSerial=0;
-async function runLab(){
-  if(!state.origin || !state.destination)return toast(t('chooseBothPoints'));
-  const serial=++labSerial,revision=state.revision;labController?.abort();labController=new AbortController();$('#run-lab').disabled=true;$('#lab-results').textContent=t('runningComparison');state.explored=[];
-  const algorithms=[$('#algorithm-a').value,$('#algorithm-b').value];
-  try{
-    // The server's memory profiler is process-wide. Run comparisons sequentially
-    // so concurrent tracemalloc sessions cannot corrupt the displayed statistics.
-    const responses=[];
-    for(const algorithm of algorithms){
-      if(serial!==labSerial || revision!==state.revision)return;
-      try{responses.push({status:'fulfilled',value:await request('/v1/route',{origin:state.origin.latlon,destination:state.destination.latlon,mode:state.mode==='all'?'motorbike':state.mode,algorithm,debug:{return_explored:true,max_points:5000}},labController.signal)});}
-      catch(reason){responses.push({status:'rejected',reason});}
+const PRESETS = {
+  ben_thanh_landmark: {
+    origin: { name: 'Chợ Bến Thành', address: 'Quận 1, TP. Hồ Chí Minh', latlon: [10.77256, 106.69801] },
+    destination: { name: 'Landmark 81', address: 'Bình Thạnh, TP. Hồ Chí Minh', latlon: [10.79502, 106.72183] }
+  },
+  airport_ben_thanh: {
+    origin: { name: 'Sân bay Tân Sơn Nhất', address: 'Tân Bình, TP. Hồ Chí Minh', latlon: [10.81845, 106.65882] },
+    destination: { name: 'Chợ Bến Thành', address: 'Quận 1, TP. Hồ Chí Minh', latlon: [10.77256, 106.69801] }
+  },
+  bach_khoa_landmark: {
+    origin: { name: 'ĐH Bách Khoa', address: 'Quận 10, TP. Hồ Chí Minh', latlon: [10.77212, 106.65787] },
+    destination: { name: 'Landmark 81', address: 'Bình Thạnh, TP. Hồ Chí Minh', latlon: [10.79502, 106.72183] }
+  }
+};
+
+const ALGO_NAMES = {
+  astar: 'A* (Euclidean)',
+  ucs: 'Dijkstra (UCS)',
+  greedy: 'Greedy Best-First',
+  bidir_dijkstra: 'Bidirectional Dijkstra',
+  bidir_astar: 'Bidirectional A*',
+  weighted_astar: 'Weighted A* (w=1.5)'
+};
+
+function applyPreset(key) {
+  const preset = PRESETS[key];
+  if (!preset) return;
+  invalidate();
+  state.origin = preset.origin;
+  state.destination = preset.destination;
+  $('#origin-search').value = preset.origin.name;
+  $('#destination-search').value = preset.destination.name;
+  update();
+  toast(`${preset.origin.name} → ${preset.destination.name}`);
+}
+
+function showExploredPoints(items, fitGeom) {
+  clearInterval(explorationTimer);
+  if (fitGeom) fitRoute(fitGeom);
+  if (settings.reduceMotion) {
+    state.explored = items;
+    scheduleMap();
+    return;
+  }
+  state.explored = [];
+  let count = 0;
+  explorationTimer = setInterval(() => {
+    count += 200;
+    state.explored = items.slice(0, count);
+    scheduleMap();
+    if (count >= items.length) clearInterval(explorationTimer);
+  }, 40);
+}
+
+let labController, labSerial = 0;
+async function runLab() {
+  if (!state.origin || !state.destination) {
+    applyPreset('ben_thanh_landmark');
+  }
+  const serial = ++labSerial, revision = state.revision;
+  labController?.abort();
+  labController = new AbortController();
+  $('#run-lab').disabled = true;
+  $('#lab-results').innerHTML = `<p class="lab-loading">${esc(t('runningComparison'))}</p>`;
+  state.explored = [];
+  const algoA = $('#algorithm-a').value;
+  const algoB = $('#algorithm-b').value;
+  const algorithms = [algoA, algoB];
+
+  try {
+    const responses = [];
+    for (const algorithm of algorithms) {
+      if (serial !== labSerial || revision !== state.revision) return;
+      try {
+        responses.push({
+          status: 'fulfilled',
+          value: await request('/v1/route', {
+            origin: state.origin.latlon,
+            destination: state.destination.latlon,
+            mode: state.mode === 'all' ? 'motorbike' : state.mode,
+            algorithm,
+            debug: { return_explored: true, max_points: 5000 }
+          }, labController.signal)
+        });
+      } catch (reason) {
+        responses.push({ status: 'rejected', reason });
+      }
     }
-    if(serial!==labSerial || revision!==state.revision)return;
+    if (serial !== labSerial || revision !== state.revision) return;
     $('#lab-results').replaceChildren();
-    responses.forEach((response,index)=>{
-      const card=document.createElement('article');card.className='lab-result';
-      if(response.status==='rejected'){card.textContent=`${algorithms[index]}: ${errorText(response.reason)}`;}else{
-        const data=response.value;card.innerHTML=`<h3>${esc(algorithms[index])}</h3><dl><dt>${esc(t('nodesExpanded'))}</dt><dd>${data.stats.nodes_expanded.toLocaleString()}</dd><dt>${esc(t('runtime'))}</dt><dd>${data.stats.runtime_ms.toFixed(1)} ms</dd><dt>${esc(t('distance'))}</dt><dd>${meters(data.distance_m)}</dd><dt>${esc(t('memory'))}</dt><dd>${data.stats.peak_memory_kb.toFixed(0)} KB</dd></dl><button class="secondary">${esc(t('showExploration'))}</button>`;
-        card.querySelector('button').onclick=()=>{
-          clearInterval(explorationTimer);fitRoute([...data.geometry,...data.explored]);
-          state.explored=settings.reduceMotion ? data.explored : [];let count=0;
-          if(!settings.reduceMotion)explorationTimer=setInterval(()=>{count+=250;state.explored=data.explored.slice(0,count);scheduleMap();if(count>=data.explored.length)clearInterval(explorationTimer);},80);
-        };
-      }$('#lab-results').append(card);
-    });
-  }catch(error){if(serial===labSerial)$('#lab-results').textContent=errorText(error);}finally{if(serial===labSerial)$('#run-lab').disabled=false;}
+
+    const nameA = ALGO_NAMES[algoA] || algoA;
+    const nameB = ALGO_NAMES[algoB] || algoB;
+
+    if (responses[0].status === 'fulfilled' && responses[1].status === 'fulfilled') {
+      const resA = responses[0].value;
+      const resB = responses[1].value;
+      const nodesA = resA.stats.nodes_expanded;
+      const nodesB = resB.stats.nodes_expanded;
+      const timeA = resA.stats.runtime_ms;
+      const timeB = resB.stats.runtime_ms;
+
+      const isWinA = nodesA < nodesB;
+      const isTie = nodesA === nodesB;
+      const winnerName = isTie ? 'Hòa / Tie' : (isWinA ? nameA : nameB);
+      const moreNodes = Math.max(nodesA, nodesB);
+      const fewerNodes = Math.min(nodesA, nodesB);
+      const diffPct = moreNodes > 0 ? Math.round((moreNodes - fewerNodes) / moreNodes * 100) : 0;
+      const speedup = (Math.max(timeA, timeB) / Math.max(0.01, Math.min(timeA, timeB))).toFixed(1);
+
+      let summaryText = '';
+      if (isTie) {
+        summaryText = settings.language === 'vi'
+          ? `Cả hai thuật toán đều duyệt ${nodesA.toLocaleString()} nút và tìm ra cùng độ dài đường đi (${meters(resA.distance_m)}).`
+          : `Both algorithms expanded ${nodesA.toLocaleString()} nodes and found the same route distance (${meters(resA.distance_m)}).`;
+      } else {
+        const winner = isWinA ? nameA : nameB;
+        const other = isWinA ? nameB : nameA;
+        const winNodes = isWinA ? nodesA : nodesB;
+        const otherNodes = isWinA ? nodesB : nodesA;
+        summaryText = settings.language === 'vi'
+          ? `${winner} duyệt ít hơn ${diffPct}% nút so với ${other} (${winNodes.toLocaleString()} so với ${otherNodes.toLocaleString()}), chạy nhanh hơn khoảng ${speedup}x.`
+          : `${winner} expanded ${diffPct}% fewer nodes than ${other} (${winNodes.toLocaleString()} vs ${otherNodes.toLocaleString()}), running ~${speedup}x faster.`;
+      }
+
+      const summaryCard = document.createElement('div');
+      summaryCard.className = 'lab-summary-card';
+      summaryCard.innerHTML = `<h4>🏆 ${esc(t('winner'))}: ${esc(winnerName)}</h4><p>${esc(summaryText)}</p>`;
+      $('#lab-results').append(summaryCard);
+
+      const table = document.createElement('table');
+      table.className = 'lab-table';
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>${esc(t('metric'))}</th>
+            <th>${esc(nameA)}</th>
+            <th>${esc(nameB)}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>${esc(t('nodesExpanded'))}</strong></td>
+            <td>${nodesA.toLocaleString()} ${isWinA ? `<span class="badge-winner">${esc(t('winner'))}</span>` : ''}</td>
+            <td>${nodesB.toLocaleString()} ${!isWinA && !isTie ? `<span class="badge-winner">${esc(t('winner'))}</span>` : ''}</td>
+          </tr>
+          <tr>
+            <td><strong>${esc(t('runtime'))}</strong></td>
+            <td>${timeA.toFixed(1)} ms ${timeA <= timeB ? `<span class="badge-winner">✓</span>` : ''}</td>
+            <td>${timeB.toFixed(1)} ms ${timeB < timeA ? `<span class="badge-winner">✓</span>` : ''}</td>
+          </tr>
+          <tr>
+            <td><strong>${esc(t('distance'))}</strong></td>
+            <td>${meters(resA.distance_m)}</td>
+            <td>${meters(resB.distance_m)}</td>
+          </tr>
+          <tr>
+            <td><strong>${esc(t('memory'))}</strong></td>
+            <td>${resA.stats.peak_memory_kb.toFixed(0)} KB</td>
+            <td>${resB.stats.peak_memory_kb.toFixed(0)} KB</td>
+          </tr>
+        </tbody>
+      `;
+      $('#lab-results').append(table);
+
+      const actions = document.createElement('div');
+      actions.className = 'lab-action-group';
+      actions.innerHTML = `
+        <button type="button" class="secondary" id="lab-show-a">
+          ${markupIcon('eye')} <span>${esc(nameA)} (Teal)</span>
+        </button>
+        <button type="button" class="secondary" id="lab-show-b">
+          ${markupIcon('eye')} <span>${esc(nameB)} (Purple)</span>
+        </button>
+        <button type="button" class="primary" id="lab-show-both">
+          ${markupIcon('layers')} <span>${esc(t('compareBoth'))}</span>
+        </button>
+      `;
+      $('#lab-results').append(actions);
+
+      actions.querySelector('#lab-show-a').onclick = () => {
+        const items = resA.explored.map(p => ({ point: p, color: '#00897b' }));
+        showExploredPoints(items, [...resA.geometry, ...resA.explored]);
+      };
+      actions.querySelector('#lab-show-b').onclick = () => {
+        const items = resB.explored.map(p => ({ point: p, color: '#7c4dff' }));
+        showExploredPoints(items, [...resB.geometry, ...resB.explored]);
+      };
+      actions.querySelector('#lab-show-both').onclick = () => {
+        const itemsB = resB.explored.map(p => ({ point: p, color: '#7c4dff' }));
+        const itemsA = resA.explored.map(p => ({ point: p, color: '#00897b' }));
+        showExploredPoints([...itemsB, ...itemsA], [...resA.geometry, ...resB.geometry, ...resA.explored, ...resB.explored]);
+      };
+    } else {
+      responses.forEach((response, index) => {
+        const card = document.createElement('article');
+        card.className = 'lab-result';
+        const name = ALGO_NAMES[algorithms[index]] || algorithms[index];
+        if (response.status === 'rejected') {
+          card.textContent = `${name}: ${errorText(response.reason)}`;
+        } else {
+          const data = response.value;
+          card.innerHTML = `<h3>${esc(name)}</h3><dl><dt>${esc(t('nodesExpanded'))}</dt><dd>${data.stats.nodes_expanded.toLocaleString()}</dd><dt>${esc(t('runtime'))}</dt><dd>${data.stats.runtime_ms.toFixed(1)} ms</dd><dt>${esc(t('distance'))}</dt><dd>${meters(data.distance_m)}</dd><dt>${esc(t('memory'))}</dt><dd>${data.stats.peak_memory_kb.toFixed(0)} KB</dd></dl><button class="secondary">${esc(t('showExploration'))}</button>`;
+          card.querySelector('button').onclick = () => {
+            const items = data.explored.map(p => ({ point: p, color: '#00897b' }));
+            showExploredPoints(items, [...data.geometry, ...data.explored]);
+          };
+        }
+        $('#lab-results').append(card);
+      });
+    }
+  } catch (error) {
+    if (serial === labSerial) $('#lab-results').textContent = errorText(error);
+  } finally {
+    if (serial === labSerial) $('#run-lab').disabled = false;
+  }
 }
 
 fields.forEach(field=>{
   const input=$(`#${field}-search`);
   input.oninput=()=>{invalidate();state[field]=null;state.picking=field;scheduleSearch(field);update();};
   input.onfocus=()=>{state.picking=field;update();};
-  input.onkeydown=event=>{if(event.key==='ArrowDown'){event.preventDefault();$(`#${field}-suggestions .suggestion`)?.focus();}if(event.key==='Escape')closeSuggestions(field);};
+  input.onkeydown=event=>{
+    if(event.key==='ArrowDown'){event.preventDefault();$(`#${field}-suggestions .suggestion`)?.focus();}
+    else if(event.key==='Enter'){
+      event.preventDefault();
+      const coord = parseCoordinate(input.value);
+      if(coord){selectPlace(field,{name:`${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`,latlon:coord});}
+      else{const first=$(`#${field}-suggestions .suggestion`);if(first)first.click();}
+    }
+    else if(event.key==='Escape')closeSuggestions(field);
+  };
 });
 $$('[data-pick]').forEach(button=>button.onclick=()=>{state.picking=button.dataset.pick;closeSuggestions();update();toast(t(state.picking==='origin'?'chooseOrigin':'chooseDestination'));map.focus();});
 $$('[data-mode]').forEach(button=>button.onclick=()=>{if(state.mode===button.dataset.mode)return;invalidate();state.mode=button.dataset.mode;update();});
@@ -511,7 +785,8 @@ $('#start-drive').onclick=()=>startDrive(false);$('#preview-drive').onclick=()=>
 $('#drive-overview').onclick=()=>{state.following=false;fitRoute(drive?.route.geometry);};
 $('#pause-drive').onclick=()=>{state.paused=!state.paused;$('#pause-drive').innerHTML=markupIcon(state.paused?'play':'pause');renderDrive();};
 $('#mute-drive').onclick=()=>{settings.voice=!settings.voice;write('settings',settings);if(!settings.voice)stopSpeaking();applySettings();};
-$('#arrival-done').onclick=()=>$('#arrival-dialog').close();$('#run-lab').onclick=runLab;
+$('#arrival-done').onclick=()=>$('#arrival-dialog').close();$$('[data-preset]').forEach(btn=>{btn.onclick=()=>applyPreset(btn.dataset.preset);});
+$('#run-lab').onclick=runLab;
 document.addEventListener('click',event=>{if(!event.target.closest('.point-row'))closeSuggestions();});
 document.addEventListener('keydown',event=>{if(event.key==='Escape' && !drive){closeSuggestions();state.picking=null;update();}});
 addEventListener('resize',scheduleMap);addEventListener('pagehide',()=>{stopResources();clearInterval(explorationTimer);stopCamera();});

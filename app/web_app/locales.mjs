@@ -140,8 +140,20 @@ export const locales = {
     "navigationReady": "Sẵn sàng lên đường",
     "chooseTravelMode": "Chọn phương tiện",
     "navigationPermission": "Cần quyền vị trí để dẫn đường. Bạn vẫn có thể xem thử hành trình.",
-    "cancel": "Hủy"
-  },
+    "cancel": "Hủy",
+    "coordinatePoint": "Tọa độ GPS",
+    "algorithmComparisonSummary": "Tổng quan so sánh thuật toán",
+    "winner": "Tối ưu hơn",
+    "comparison": "So sánh",
+    "metric": "Chỉ số",
+    "fewerNodes": "ít nút duyệt hơn",
+    "faster": "nhanh hơn",
+    "sameDistance": "Khoảng cách bằng nhau",
+    "compareBoth": "Xem cả hai trên bản đồ",
+    "presetRoutes": "Tuyến thử nghiệm mẫu",
+    "noOriginSelected": "Chưa chọn điểm đi",
+    "noDestinationSelected": "Chưa chọn điểm đến"
+},
   "en": {
     "appTitle": "NaVie",
     "searchOrigin": "Origin",
@@ -282,6 +294,18 @@ export const locales = {
     "navigationReady": "Ready when you are",
     "chooseTravelMode": "Choose your travel mode",
     "navigationPermission": "Location permission is needed for navigation. You can still preview the drive.",
-    "cancel": "Cancel"
-  }
+    "cancel": "Cancel",
+    "coordinatePoint": "Coordinate point",
+    "algorithmComparisonSummary": "Algorithm comparison summary",
+    "winner": "Winner",
+    "comparison": "Comparison",
+    "metric": "Metric",
+    "fewerNodes": "fewer nodes",
+    "faster": "faster",
+    "sameDistance": "Same distance",
+    "compareBoth": "Compare both on map",
+    "presetRoutes": "Popular benchmark routes",
+    "noOriginSelected": "Origin not selected",
+    "noDestinationSelected": "Destination not selected"
+}
 };

@@ -29,6 +29,9 @@ _ABBREVIATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bd\.?\s+"), "duong "),
     (re.compile(r"\btp\.?\s+"), "thanh pho "),
 )
+_HOUSE_NUM_PATTERN = re.compile(
+    r"^(?:so\s+|hem\s+)?(\d+[a-z0-9/-]*)\s+(.+)$", re.IGNORECASE
+)
 
 
 def normalize(text: str) -> str:
@@ -53,7 +56,7 @@ class Geocoder:
     def __init__(
         self,
         places: list[Place],
-        online_search: Callable[[str, int], list[Place]] | None = None,
+        online_search: Callable[..., list[Place]] | None = None,
     ) -> None:
         self.places = places
         self.online_search = online_search
@@ -79,14 +82,23 @@ class Geocoder:
         if not needle:
             return []
 
+        house_num: str | None = None
+        street_needle: str | None = None
+        street_words: set[str] = set()
+        m = _HOUSE_NUM_PATTERN.match(needle)
+        if m:
+            house_num = m.group(1).upper()
+            street_needle = m.group(2).strip()
+            street_words = set(street_needle.split())
+
         ranked: list[tuple[float, str, Place]] = []
         needle_words = needle.split()
         for item in self._index:
+            place_to_rank = item.place
             name = normalize(item.place.name)
             search_words = set(item.search_text.split())
-            all_words_present = (
-                all(w in search_words for w in needle_words) if needle_words else False
-            )
+            matching_words = sum(1 for w in needle_words if w in search_words)
+            all_words_present = (matching_words == len(needle_words)) if needle_words else False
 
             score = max(
                 float(fuzz.WRatio(needle, item.search_text)),
@@ -94,7 +106,11 @@ class Geocoder:
             )
 
             if not all_words_present and len(needle_words) > 1 and needle not in item.search_text:
-                score *= 0.65
+                match_fraction = matching_words / len(needle_words)
+                if match_fraction < 0.5:
+                    score *= 0.35
+                else:
+                    score *= 0.65
 
             if name == needle:
                 score += 50.0
@@ -105,29 +121,80 @@ class Geocoder:
             elif all_words_present:
                 score += 15.0
 
-            if item.place.kind not in ("road", "unknown", "place"):
+            # Match house number + street name (e.g. 123 Nguyen Thi Minh Khai)
+            if house_num and street_needle and item.place.kind == "road":
+                street_name = name
+                street_score = max(
+                    float(fuzz.WRatio(street_needle, item.search_text)),
+                    float(fuzz.token_set_ratio(street_needle, item.search_text)),
+                )
+                if street_name == street_needle:
+                    street_score += 65.0
+                elif street_name.startswith(street_needle):
+                    street_score += 45.0
+                elif street_needle in street_name:
+                    street_score += 35.0
+                elif all(w in search_words for w in street_words):
+                    street_score += 25.0
+
+                if street_score > score:
+                    score = street_score
+                    place_to_rank = Place(
+                        name=f"{house_num} {item.place.name}",
+                        address=f"{item.place.name}, TP. Hồ Chí Minh",
+                        latlon=item.place.latlon,
+                        kind="address",
+                    )
+
+            if place_to_rank.kind not in ("road", "unknown", "place"):
                 score += 10.0
 
             if near is not None:
                 distance_km = (
-                    haversine_m(near[0], near[1], item.place.latlon[0], item.place.latlon[1])
+                    haversine_m(near[0], near[1], place_to_rank.latlon[0], place_to_rank.latlon[1])
                     / 1_000
                 )
-                score += max(0.0, 10.0 - distance_km / 2.0)
+                # Stronger boost for nearby places (up to 20 points within 5 km)
+                score += max(0.0, 20.0 - distance_km * 2.0)
 
             if score >= 55.0:
-                ranked.append((score, name, item.place))
+                ranked.append((score, normalize(place_to_rank.name), place_to_rank))
 
         ranked.sort(key=lambda row: (-row[0], row[1]))
         local = [place for _score, _name, place in ranked[:limit]]
-        has_exact_local = any(normalize(place.name) == needle for place in local)
-        if self.online_search is None or has_exact_local or (local and ranked[0][0] >= 85.0):
+        has_exact_local_poi = any(
+            normalize(place.name) == needle and place.kind not in ("road", "unknown")
+            for place in local
+        )
+        top_score = ranked[0][0] if ranked else 0.0
+        top_is_poi = (ranked[0][2].kind not in ("road", "unknown")) if ranked else False
+        has_strong_poi = (top_is_poi and top_score >= 85.0) or has_exact_local_poi
+
+        if self.online_search is None or has_strong_poi:
             return local
 
-        online = self.online_search(query, limit)
+        try:
+            online = self.online_search(query, limit, near=near)
+        except TypeError:
+            online = self.online_search(query, limit)
+
         combined: list[Place] = []
         seen: set[tuple[str, float, float]] = set()
-        for place in online + local:
+
+        def place_rank_key(p: Place) -> tuple[int, float, str]:
+            p_norm = normalize(p.name)
+            is_exact = p_norm == needle
+            is_poi = p.kind not in ("road", "unknown")
+            prio = 0 if (is_exact and is_poi) else (1 if is_exact else (2 if is_poi else 3))
+            dist = (
+                haversine_m(near[0], near[1], p.latlon[0], p.latlon[1]) / 1000.0
+                if near is not None
+                else 0.0
+            )
+            return (prio, dist, p.name)
+
+        candidates = sorted(online + local, key=place_rank_key)
+        for place in candidates:
             key = (normalize(place.name), round(place.latlon[0], 5), round(place.latlon[1], 5))
             if key not in seen:
                 seen.add(key)
@@ -137,23 +204,36 @@ class Geocoder:
         return combined
 
 
-_NOMINATIM_CACHE: dict[tuple[str, str, int], list[Place]] = {}
+_NOMINATIM_CACHE: dict[tuple[object, ...], list[Place]] = {}
 _NOMINATIM_LOCK = threading.Lock()
 _LAST_NOMINATIM_REQUEST = 0.0
 
 
-def search_osm_online(city: str, query: str, limit: int) -> list[Place]:
+def search_osm_online(
+    city: str,
+    query: str,
+    limit: int,
+    near: tuple[float, float] | None = None,
+) -> list[Place]:
     """Use bounded OSM Photon as a rate-limited fallback for missing local POIs."""
     global _LAST_NOMINATIM_REQUEST
 
-    key = (city, normalize(query), limit)
+    near_key = (round(near[0], 2), round(near[1], 2)) if near else None
+    key = (city, normalize(query), limit, near_key)
     if key in _NOMINATIM_CACHE:
         return _NOMINATIM_CACHE[key]
 
     south, west, north, east = config.CITY_BBOX[city]
-    params = urllib.parse.urlencode(
-        {"q": query, "bbox": f"{west},{south},{east},{north}", "limit": limit}
-    )
+    params_dict = {
+        "q": query,
+        "bbox": f"{west},{south},{east},{north}",
+        "limit": limit,
+    }
+    if near is not None:
+        params_dict["lat"] = str(near[0])
+        params_dict["lon"] = str(near[1])
+
+    params = urllib.parse.urlencode(params_dict)
     request = urllib.request.Request(
         f"https://photon.komoot.io/api/?{params}",
         headers={"User-Agent": "NaVie-class-project/0.1 (OSM Photon place search)"},
@@ -180,9 +260,9 @@ def search_osm_online(city: str, query: str, limit: int) -> list[Place]:
             continue
         address = (
             ", ".join(
-                str(properties[key]).strip()
-                for key in ("housenumber", "street", "district", "city")
-                if properties.get(key)
+                str(properties[k]).strip()
+                for k in ("housenumber", "street", "district", "city")
+                if properties.get(k)
             )
             or None
         )
@@ -208,5 +288,7 @@ def load(city: str, build_dir: Path | None = None, online: bool = False) -> Geoc
         )
     geocoder = Geocoder.from_path(path)
     if online:
-        geocoder.online_search = lambda query, limit: search_osm_online(city, query, limit)
+        geocoder.online_search = lambda query, limit, near=None: search_osm_online(
+            city, query, limit, near=near
+        )
     return geocoder

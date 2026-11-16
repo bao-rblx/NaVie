@@ -68,3 +68,26 @@ def test_geocode_endpoint_validates_near() -> None:
     client = TestClient(create_app(geocoder=Geocoder(places())))
     response = client.get("/v1/geocode", params={"q": "cho", "near": "not-a-point"})
     assert response.status_code == 422
+
+def test_house_number_with_street_returns_address() -> None:
+    geocoder = Geocoder(places())
+    results = geocoder.search("123 nguyen trai")
+    assert len(results) > 0
+    assert "123" in results[0].name
+    assert results[0].kind == "address"
+
+
+def test_online_fallback_receives_near_coordinates() -> None:
+    received: list[tuple[float, float] | None] = []
+
+    def mock_online(query: str, limit: int, near: tuple[float, float] | None = None) -> list[Place]:
+        received.append(near)
+        return [Place(name="Highlands Coffee", latlon=(10.77, 106.70), kind="cafe")]
+
+    local = [Place(name="Đường Hẻm", latlon=(10.80, 106.70), kind="road")]
+    geocoder = Geocoder(local, online_search=mock_online)
+    res = geocoder.search("highlands", near=(10.7769, 106.7009))
+    assert len(res) > 0
+    assert res[0].name == "Highlands Coffee"
+    assert received == [(10.7769, 106.7009)]
+

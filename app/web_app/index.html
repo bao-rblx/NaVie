@@ -50,7 +50,48 @@
       <section id="route-results" class="hidden"><div class="section-heading"><h2 data-i18n="routeOptions"></h2><select id="sort" data-label="sortRoutes"><option value="fastest" data-i18n="fastest"></option><option value="cheapest" data-i18n="cheapest"></option><option value="balanced" data-i18n="balanced"></option></select></div><div id="results" class="results"></div><div id="trip-detail"></div><div class="start-actions"><button id="start-drive" class="primary"><i data-icon="navigation"></i><span data-i18n="startNavigation"></span></button><button id="preview-drive" class="secondary"><i data-icon="play"></i><span data-i18n="previewDrive"></span></button></div></section>
     </section>
     <section id="page-saved" class="page hidden"><div class="intro"><span class="eyebrow" data-i18n="yourPlaces"></span><h1 data-i18n="saved"></h1><p data-i18n="savedSubtitle"></p></div><button id="save-destination" class="primary"><i data-icon="bookmark"></i><span data-i18n="saveDestination"></span></button><div id="saved-list"></div></section>
-    <section id="page-lab" class="page hidden"><div class="intro"><span class="eyebrow" data-i18n="behindTheRoute"></span><h1 data-i18n="lab"></h1><p data-i18n="labSubtitle"></p></div><div class="info-card" data-i18n="labHelp"></div><div class="lab-selectors"><label>A<select id="algorithm-a"><option value="astar">A*</option><option value="ucs">Dijkstra</option><option value="greedy">Greedy</option><option value="bidir_dijkstra">Bidirectional Dijkstra</option></select></label><label>B<select id="algorithm-b"><option value="ucs">Dijkstra</option><option value="astar">A*</option><option value="greedy">Greedy</option><option value="bidir_dijkstra">Bidirectional Dijkstra</option></select></label></div><button id="run-lab" class="primary"><i data-icon="play"></i><span data-i18n="compareAlgorithms"></span></button><div id="lab-results" aria-live="polite"></div></section>
+    <section id="page-lab" class="page hidden">
+      <div class="intro"><span class="eyebrow" data-i18n="behindTheRoute"></span><h1 data-i18n="lab"></h1><p data-i18n="labSubtitle"></p></div>
+      <div class="info-card" data-i18n="labHelp"></div>
+      <div class="lab-endpoints">
+        <div class="lab-current-trip">
+          <div class="lab-trip-row"><span class="point-dot origin"></span><span id="lab-origin-name" data-i18n="noOriginSelected"></span></div>
+          <div class="lab-trip-row"><span class="point-dot destination"></span><span id="lab-destination-name" data-i18n="noDestinationSelected"></span></div>
+        </div>
+        <div class="lab-presets">
+          <span class="lab-presets-title" data-i18n="presetRoutes"></span>
+          <div class="preset-buttons">
+            <button type="button" class="preset-btn" data-preset="ben_thanh_landmark">Chợ Bến Thành → Landmark 81</button>
+            <button type="button" class="preset-btn" data-preset="airport_ben_thanh">Tân Sơn Nhất → Chợ Bến Thành</button>
+            <button type="button" class="preset-btn" data-preset="bach_khoa_landmark">ĐH Bách Khoa → Landmark 81</button>
+          </div>
+        </div>
+      </div>
+      <div class="lab-selectors">
+        <label>A
+          <select id="algorithm-a">
+            <option value="astar">A* (Heuristic Search - Euclidean)</option>
+            <option value="ucs">Dijkstra / UCS (Uniform Cost)</option>
+            <option value="greedy">Greedy Best-First Search</option>
+            <option value="bidir_dijkstra">Bidirectional Dijkstra</option>
+            <option value="bidir_astar">Bidirectional A*</option>
+            <option value="weighted_astar">Weighted A* (w=1.5)</option>
+          </select>
+        </label>
+        <label>B
+          <select id="algorithm-b">
+            <option value="ucs">Dijkstra / UCS (Uniform Cost)</option>
+            <option value="astar">A* (Heuristic Search - Euclidean)</option>
+            <option value="greedy">Greedy Best-First Search</option>
+            <option value="bidir_dijkstra">Bidirectional Dijkstra</option>
+            <option value="bidir_astar">Bidirectional A*</option>
+            <option value="weighted_astar">Weighted A* (w=1.5)</option>
+          </select>
+        </label>
+      </div>
+      <button id="run-lab" class="primary"><i data-icon="play"></i><span data-i18n="compareAlgorithms"></span></button>
+      <div id="lab-results" aria-live="polite"></div>
+    </section>
     <section id="page-settings" class="page hidden"><div class="intro"><span class="eyebrow" data-i18n="makeItYours"></span><h1 data-i18n="settings"></h1><p data-i18n="settingsSubtitle"></p></div><div class="settings-list">
       <label><span><i data-icon="globe"></i><span data-i18n="language"></span></span><select id="language"><option value="vi">Tiếng Việt</option><option value="en">English</option></select></label>
       <label><span><i data-icon="moon"></i><span data-i18n="appearance"></span></span><select id="theme"><option value="light" data-i18n="dayTheme"></option><option value="dark" data-i18n="nightTheme"></option><option value="auto" data-i18n="systemTheme"></option></select></label>

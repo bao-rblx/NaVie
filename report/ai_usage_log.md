@@ -1,4 +1,4 @@
-﻿# AI usage log
+# AI usage log
 
 Required by `AGENTS.md` ("After each task") and `docs/05_roadmap.md` §3, for the AI-use disclosure in the essay.
 
@@ -36,3 +36,42 @@ Flutter client: replaced the 250 ms whole-screen rebuild with a `ValueNotifier`,
 Browser client: rAF camera easing with 1:1 pan/pinch, shortest-arc rotation, persistent SVG polylines instead of a per-frame `innerHTML` rebuild, LRU tile cache, animated map inset / toast / driver panel, and a speech overlap guard. Tests 9 → 11.
 
 Open and not changed by this session, still blocking the grade: no essay and no slide deck exist (submission 22/11); `make bench` is unimplemented, so there is no algorithm comparison and no figure; `backend/navie/traffic/` and `backend/navie/logistics/` are still empty; `cost_vnd` is still 0 for every motorised mode; the geocode index still has no POIs; `make` is still not installed on the dev machine, so NFR-10 has never run as written. Ranked list in `report/PROJECT_STATUS_2026-11-15.md` §5.
+
+## 2026-11-16 — UX & Map stabilization, location search, and algorithm comparison pass
+
+Resolved issues reported by user on search accuracy, map/route zoom jitter, nav mode line and vehicle tweening, and algorithm comparison confusion:
+
+1. **Location Search & Geocoding (including Smaller Locations & Addresses)**:
+   - Enriched `data/build/hcmc_geocode.json` and `dist/NaVie/data/build/hcmc_geocode.json` with 150+ popular everyday smaller places in HCMC (convenience stores like Circle K, GS25, FamilyMart; cafes like Highlands, Katinat, Phuc Long; shopping malls like Van Hanh Mall, GigaMall, Crescent Mall; hospitals, universities, pagodas, markets, and food spots).
+   - Added house number and street pattern detection (`_HOUSE_NUM_PATTERN`), synthesizing an address place (e.g., `123 Nguyễn Thị Minh Khai`, `284 Lê Văn Sỹ`) on any of HCMC's 25,800 mapped roads.
+   - Enhanced `search_osm_online` with `lat` and `lon` proximity parameters, ensuring online OSM Photon queries are biased to the neighborhood currently viewed on the map.
+   - Strengthened proximity weighting in `backend/navie/geocode/service.py` (up to 20 pts within 5 km) so nearby branches of chain stores/cafes rank #1.
+   - Patched online fallback gating so a high-scoring road does not suppress online POI discovery when searching for smaller venues.
+   - Added GPS coordinate parser (`lat, lon`) to search inputs and Enter-key selection in the browser client.
+
+2. **Map & Route Zoom Stabilization**:
+   - Added `.tile { transform-origin: 0 0; }` in CSS to eliminate 128px center-origin tile drifting on fractional zoom levels.
+   - Fixed tile screen coordinate placement math in `renderMap()` (`screenX = width/2 + (x * 256 - center[0]) * scale`), perfectly matching tile edges with subpixel precision during zoom transitions.
+   - Introduced local origin reference coordinates (`ref = world(geometry[0], zoom)`) for SVG route and explored layers, avoiding 32-bit single-precision float mantissa overflow (>16.7M world units at zoom 17+) and preventing polyline jitter / disappearing lines.
+   - Smoothed mouse wheel zoom to 0.25 steps with easing.
+
+3. **Navigation Mode**:
+   - Kept route line and destination pin visible throughout driver navigation mode.
+   - Replaced the discrete 250 ms `setInterval` vehicle advance with a continuous 60fps `requestAnimationFrame` tweening loop (`advance(dt * speedMultiplier)`), providing smooth movement along route geometry.
+
+4. **Algorithm Comparison Lab Redesign**:
+   - Added one-click benchmark preset routes (Bến Thành → Landmark 81, Tân Sơn Nhất → Bến Thành, ĐH Bách Khoa → Landmark 81) with active endpoint indicators.
+   - Auto-loads a default benchmark route if endpoints were unset when clicking Compare.
+   - Added side-by-side comparison summary card with winner badges, node reduction percentage, and speedup ratios.
+   - Added side-by-side metrics table (Nodes Expanded, Runtime, Distance, Peak Memory).
+   - Added dual-color interactive map visualizer allowing simultaneous overlay of Algorithm A (Teal) and Algorithm B (Purple) exploration frontiers.
+
+Validation:
+- All 71 backend pytest tests pass with 92% coverage (`pytest --cov=navie`).
+- All 27 Flutter tests pass (`flutter test`).
+- All 11 browser navigation tests pass (`node --test app/web_app/tests/navigation.test.mjs`).
+- Backend linter passes with zero warnings (`ruff check backend`).
+
+Open issues for the human reviewer:
+- Custom landmark coordinates in `data/build/hcmc_geocode.json` should be reviewed before report submission.
+- Traffic Bayesian Network and logistics intercity cards remain in roadmap.
