@@ -13,6 +13,8 @@ dependencies = [
     "pydantic==2.10.4",
     "numpy==2.2.1",
     "scipy==1.15.0",
+    "rapidfuzz==3.10.1",
+    "Unidecode==1.3.8",
 ]
 
 [project.optional-dependencies]
@@ -44,4 +46,5 @@ check_untyped_defs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=navie --cov-report=term-missing"
+# NFR-08: coverage floor; the run fails below it instead of letting it regress quietly.
+addopts = "--cov=navie --cov-report=term-missing --cov-fail-under=80"
