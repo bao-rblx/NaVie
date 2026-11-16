@@ -66,6 +66,10 @@ NaVie/
 All bodies JSON. Coordinates are `[lat, lon]`. Times ISO-8601 with `+07:00`.
 
 ### `POST /v1/route` — single mode, single algorithm
+The executable contract for this endpoint and the related `/v1/plan`, `/v1/parse`,
+and `/v1/geocode` endpoints lives in `backend/navie/schemas.py`; this section is
+the human-readable API reference and must be updated alongside that module.
+
 ```json
 // request
 { "origin": [10.7725, 106.6980], "destination": [10.7300, 106.7210],
